@@ -46,7 +46,7 @@ jobs:
       run: |
         cat << EOF > rosti.app.conf
         [program:apollo]
-        command=node src/index.js
+        command=node index.js
         environment=PATH="/srv/bin/primary_tech:/usr/local/bin:/usr/bin:/bin:/srv/.npm-packages/bin"
         stopasgroup=true
         directory=/srv/app
