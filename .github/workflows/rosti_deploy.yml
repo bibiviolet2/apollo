@@ -29,7 +29,6 @@ jobs:
         mkdir -p ~/.ssh
         echo "${{ secrets.ROSTI_DEPLOY_SSH_KEY }}" > ~/.ssh/id_rsa_rosti
         chmod 600 ~/.ssh/id_rsa_rosti
-        ssh-keyscan -p $PORT $HOST >> ~/.ssh/known_hosts
         echo "SSH Deploy key setup completed."
 
     # 📌 Nastavení SSH klíče pro TUNEL
@@ -37,9 +36,18 @@ jobs:
       run: |
         echo "${{ secrets.ROSTI_TUNNEL_SSH_KEY }}" > ~/.ssh/id_rsa_tunnel
         chmod 600 ~/.ssh/id_rsa_tunnel
-        ssh-keyscan -p $PORT $HOST >> ~/.ssh/known_hosts
         echo "SSH Tunnel key setup completed."
-    
+
+    # 📌 Oprava chyby "Host key verification failed"
+    - name: Remove old SSH key (if exists)
+      run: |
+        ssh-keygen -R $HOST -p $PORT || true
+
+    - name: Setup host key verification
+      run: |
+        ssh-keyscan -p $PORT $HOST >> ~/.ssh/known_hosts
+        echo "SSH host key verification setup completed."
+
     - name: Debug SSH Keys
       run: ls -lah ~/.ssh/
 
@@ -60,11 +68,11 @@ jobs:
     # 📌 **Používáme `id_rsa_rosti` pro nasazení kódu**
     - name: Setup Node.js on Roští
       run: |
-        ssh -i ~/.ssh/id_rsa_rosti -o UserKnownHostsFile=./known_hosts -p $PORT $USER@$HOST /usr/local/bin/rosti node $NODE_VERSION
+        ssh -i ~/.ssh/id_rsa_rosti -o UserKnownHostsFile=~/.ssh/known_hosts -p $PORT $USER@$HOST /usr/local/bin/rosti node $NODE_VERSION
 
     - name: Copy project files
       run: |
-        rsync -ae "ssh -i ~/.ssh/id_rsa_rosti -o UserKnownHostsFile=./known_hosts -p $PORT" --delete-after --exclude=.git ./ $USER@$HOST:/srv/app/
+        rsync -ae "ssh -i ~/.ssh/id_rsa_rosti -o UserKnownHostsFile=~/.ssh/known_hosts -p $PORT" --delete-after --exclude=.git ./ $USER@$HOST:/srv/app/
 
     - name: Setup Supervisord for Apollo Server
       run: |
@@ -84,7 +92,7 @@ jobs:
         stdout_events_enabled=false
         redirect_stderr=true
         EOF
-        scp -i ~/.ssh/id_rsa_rosti -o UserKnownHostsFile=./known_hosts -P $PORT rosti.app.conf $USER@$HOST:/srv/conf/supervisor.d/apollo.conf
+        scp -i ~/.ssh/id_rsa_rosti -o UserKnownHostsFile=~/.ssh/known_hosts -P $PORT rosti.app.conf $USER@$HOST:/srv/conf/supervisor.d/apollo.conf
         rm rosti.app.conf
 
     - name: Setup Nginx Proxy for Apollo Server
@@ -103,11 +111,11 @@ jobs:
             }
         }        
         EOF
-        scp -i ~/.ssh/id_rsa_rosti -o UserKnownHostsFile=./known_hosts -P $PORT rosti.nginx.conf $USER@$HOST:/srv/conf/nginx.d/app.conf
+        scp -i ~/.ssh/id_rsa_rosti -o UserKnownHostsFile=~/.ssh/known_hosts -P $PORT rosti.nginx.conf $USER@$HOST:/srv/conf/nginx.d/app.conf
         rm rosti.nginx.conf
 
     - name: Restart services
       run: |
-        ssh -i ~/.ssh/id_rsa_rosti -o UserKnownHostsFile=./known_hosts -p $PORT $USER@$HOST supervisorctl reread
-        ssh -i ~/.ssh/id_rsa_rosti -o UserKnownHostsFile=./known_hosts -p $PORT $USER@$HOST supervisorctl restart apollo
-        ssh -i ~/.ssh/id_rsa_rosti -o UserKnownHostsFile=./known_hosts -p $PORT $USER@$HOST supervisorctl restart nginx
+        ssh -i ~/.ssh/id_rsa_rosti -o UserKnownHostsFile=~/.ssh/known_hosts -p $PORT $USER@$HOST supervisorctl reread
+        ssh -i ~/.ssh/id_rsa_rosti -o UserKnownHostsFile=~/.ssh/known_hosts -p $PORT $USER@$HOST supervisorctl restart apollo
+        ssh -i ~/.ssh/id_rsa_rosti -o UserKnownHostsFile=~/.ssh/known_hosts -p $PORT $USER@$HOST supervisorctl restart nginx
