@@ -12,6 +12,8 @@ jobs:
       USER: app
       PORT: 14164
       NODE_VERSION: 23.6.0
+      DB_SSH_TUNNEL_PORT: 3307  # Port pro lokální SSH tunel k MySQL
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
@@ -37,6 +39,11 @@ jobs:
     - name: Install dependencies
       run: |
         npm install
+
+    - name: Setup SSH tunnel for MySQL
+      run: |
+        ssh -f -N -L 127.0.0.1:$DB_SSH_TUNNEL_PORT:store6.rosti.cz:3306 -p $PORT $USER@$HOST
+        echo "SSH tunnel for MySQL is running on 127.0.0.1:$DB_SSH_TUNNEL_PORT"
 
     - name: Setup Node.js on Roští
       run: |
