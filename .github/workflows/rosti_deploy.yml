@@ -23,14 +23,25 @@ jobs:
       with:
         node-version: "v23.6.0"
 
-    - name: Setup SSH key
-      uses: webfactory/ssh-agent@v0.8.0
-      with:
-        ssh-private-key: ${{ secrets.ROSTI_DEPLOY_SSH_KEY }}
-
-    - name: Setup hostkey
+    # 📌 Nastavení SSH klíče pro DEPLOY
+    - name: Setup Deploy SSH key
       run: |
-        echo "ssh.rosti.cz ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCeNrwt+7MFKveHRFrIsZPbZ/QqzsOUhY2oV1wltuwvxP37kTM0dUI7ejb8R2zZagDHNhPBdrSvWU3XdW/rmd+vMScGpNGDRCZKO35hFbnztfD6SpKRWXuVab5u0il1PpJrOOh13w0ZcrOWCi0xP9t+xkallqLcNsUb3Ztw/j2ZtB6wbwTI7LGaoK8dCHbfDeoi27BIhMhyNwpz+ZMeeu/EePeeYcW5dmS0DvktaYJgiEUOrfpEULIDNBwiA590ZVTZLjolyZRGygGETzm0ivIrBFH9ANnYFONRr/ncTIcXB+JwAUsjPLBiwKjmVJIgWwup+pcsc4SlBNtR+czIdfh/" > ./known_hosts
+        mkdir -p ~/.ssh
+        echo "${{ secrets.ROSTI_DEPLOY_SSH_KEY }}" > ~/.ssh/id_rsa_rosti
+        chmod 600 ~/.ssh/id_rsa_rosti
+        ssh-keyscan -p $PORT $HOST >> ~/.ssh/known_hosts
+        echo "SSH Deploy key setup completed."
+
+    # 📌 Nastavení SSH klíče pro TUNEL
+    - name: Setup Tunnel SSH key
+      run: |
+        echo "${{ secrets.ROSTI_TUNNEL_SSH_KEY }}" > ~/.ssh/id_rsa_tunnel
+        chmod 600 ~/.ssh/id_rsa_tunnel
+        ssh-keyscan -p $PORT $HOST >> ~/.ssh/known_hosts
+        echo "SSH Tunnel key setup completed."
+    
+    - name: Debug SSH Keys
+      run: ls -lah ~/.ssh/
 
     - name: Create .env file
       run: |
@@ -40,14 +51,20 @@ jobs:
       run: |
         npm install
 
+    # 📌 **Používáme pouze `id_rsa_tunnel` pro SSH tunel**
     - name: Setup SSH tunnel for MySQL
       run: |
-        ssh -f -N -L 127.0.0.1:$DB_SSH_TUNNEL_PORT:store6.rosti.cz:3306 -p $PORT $USER@$HOST
+        ssh -i ~/.ssh/id_rsa_tunnel -f -N -L 127.0.0.1:$DB_SSH_TUNNEL_PORT:store6.rosti.cz:3306 -p $PORT $USER@$HOST
         echo "SSH tunnel for MySQL is running on 127.0.0.1:$DB_SSH_TUNNEL_PORT"
 
+    # 📌 **Používáme `id_rsa_rosti` pro nasazení kódu**
     - name: Setup Node.js on Roští
       run: |
-        ssh -o UserKnownHostsFile=./known_hosts -p $PORT $USER@$HOST /usr/local/bin/rosti node $NODE_VERSION
+        ssh -i ~/.ssh/id_rsa_rosti -o UserKnownHostsFile=./known_hosts -p $PORT $USER@$HOST /usr/local/bin/rosti node $NODE_VERSION
+
+    - name: Copy project files
+      run: |
+        rsync -ae "ssh -i ~/.ssh/id_rsa_rosti -o UserKnownHostsFile=./known_hosts -p $PORT" --delete-after --exclude=.git ./ $USER@$HOST:/srv/app/
 
     - name: Setup Supervisord for Apollo Server
       run: |
@@ -67,7 +84,7 @@ jobs:
         stdout_events_enabled=false
         redirect_stderr=true
         EOF
-        scp -o UserKnownHostsFile=./known_hosts -P $PORT rosti.app.conf $USER@$HOST:/srv/conf/supervisor.d/apollo.conf
+        scp -i ~/.ssh/id_rsa_rosti -o UserKnownHostsFile=./known_hosts -P $PORT rosti.app.conf $USER@$HOST:/srv/conf/supervisor.d/apollo.conf
         rm rosti.app.conf
 
     - name: Setup Nginx Proxy for Apollo Server
@@ -86,15 +103,11 @@ jobs:
             }
         }        
         EOF
-        scp -o UserKnownHostsFile=./known_hosts -P $PORT rosti.nginx.conf $USER@$HOST:/srv/conf/nginx.d/app.conf
+        scp -i ~/.ssh/id_rsa_rosti -o UserKnownHostsFile=./known_hosts -P $PORT rosti.nginx.conf $USER@$HOST:/srv/conf/nginx.d/app.conf
         rm rosti.nginx.conf
-
-    - name: Copy project files
-      run: |
-        rsync -ae "ssh -o UserKnownHostsFile=./known_hosts -p $PORT" --delete-after --exclude=.git ./ $USER@$HOST:/srv/app/
 
     - name: Restart services
       run: |
-        ssh -o UserKnownHostsFile=./known_hosts -p $PORT $USER@$HOST supervisorctl reread
-        ssh -o UserKnownHostsFile=./known_hosts -p $PORT $USER@$HOST supervisorctl restart apollo
-        ssh -o UserKnownHostsFile=./known_hosts -p $PORT $USER@$HOST supervisorctl restart nginx
+        ssh -i ~/.ssh/id_rsa_rosti -o UserKnownHostsFile=./known_hosts -p $PORT $USER@$HOST supervisorctl reread
+        ssh -i ~/.ssh/id_rsa_rosti -o UserKnownHostsFile=./known_hosts -p $PORT $USER@$HOST supervisorctl restart apollo
+        ssh -i ~/.ssh/id_rsa_rosti -o UserKnownHostsFile=./known_hosts -p $PORT $USER@$HOST supervisorctl restart nginx
