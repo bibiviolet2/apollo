@@ -7,7 +7,12 @@ import resolvers from './graphql/resolvers/index.js';
 const app = express();
 
 app.use(cors({
-  origin: ['https://studio.apollographql.com', 'http://localhost:3000', 'https://sakuraonline.cz'],
+  origin: [
+    'https://studio.apollographql.com', 
+    'http://localhost:3000', 
+    'https://sakuraonline.cz', 
+    'http://sakura-8023.rostiapp.cz'
+  ],
   credentials: true, 
 }));
 
