@@ -6,7 +6,7 @@ const server = new ApolloServer({
   typeDefs,
   resolvers,
   cors: {
-    origin: ['http://localhost:3000', 'https://sakuraonline.cz', 'https://sakura-8023.rostiapp.cz'], // 🔸 Doplněno podle potřeby
+    origin: ['*'], // 🔸 Doplněno podle potřeby
     credentials: true, // Použij, pokud potřebuješ cookies
   },
 });
