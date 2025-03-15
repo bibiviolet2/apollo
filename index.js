@@ -6,7 +6,12 @@ const server = new ApolloServer({
   typeDefs,
   resolvers,
   cors: {
-    origin: ['*'], // 🔸 Doplněno podle potřeby
+    origin: [
+      'http://localhost:3000/', 
+      'https://sakuraonline.cz/', 
+      'https://sakura-8023.rostiapp.cz/', 
+      'https://studio.apollographql.com/', 
+    ], // 🔸 Doplněno podle potřeby
     credentials: true, // Použij, pokud potřebuješ cookies
   },
 });
