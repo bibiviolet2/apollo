@@ -4,6 +4,7 @@ const bookSchema = gql`
   type Book {
     slug: String!
     name: String!
+    type: String!
   }
 
   type BookResults {
