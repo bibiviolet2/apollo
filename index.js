@@ -9,7 +9,8 @@ const app = express();
 app.use(cors({
   origin: [
     'https://studio.apollographql.com', 
-    'http://localhost:3000', 
+    'http://localhost:3000',  
+    'http://192.168.88.7:3000', 
     'https://sakuraonline.cz', 
     'http://sakura-8023.rostiapp.cz'
   ],
