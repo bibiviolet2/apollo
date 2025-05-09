@@ -7,14 +7,25 @@ import resolvers from './graphql/resolvers/index.js';
 const app = express();
 
 app.use(cors({
-  origin: [
-    'https://studio.apollographql.com', 
-    'http://localhost:3000',  
-    'http://192.168.88.7:3000', 
-    'https://sakuraonline.cz', 
-    'http://sakura-8023.rostiapp.cz'
-  ],
-  credentials: true, 
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // pro non-browser požadavky
+
+    const allowedOrigins = [
+      'https://studio.apollographql.com',
+      'http://localhost:3000',
+      'https://sakuraonline.cz',
+      'http://sakura-8023.rostiapp.cz'
+    ];
+
+    const is192 = /^http:\/\/192\.168\.88\.\d{1,3}(:\d+)?$/.test(origin);
+
+    if (allowedOrigins.includes(origin) || is192) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
 }));
 
 const server = new ApolloServer({
